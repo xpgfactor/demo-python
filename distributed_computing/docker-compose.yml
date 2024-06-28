@@ -1,0 +1,58 @@
+services:
+  redis:
+    image: redis:latest
+    container_name: redis_queue
+    restart: always
+    ports:
+      - '6379:6379'
+    command: redis-server --save 20 1 --loglevel warning --requirepass secret
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "secret", "ping"]
+      interval: 3s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - data-volume:/data
+
+  master-app:
+    build:
+      context: master
+      dockerfile: Dockerfile
+    env_file:
+      - ./env/redis.env
+    command: ["python", "main.py"]
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./master:/usr/src/app
+
+  worker-1-app:
+    build:
+      context: worker
+      dockerfile: Dockerfile
+    env_file:
+      - ./env/redis.env
+    command: ["python", "main.py"]
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./worker:/usr/src/app
+
+  worker-2-app:
+    build:
+      context: worker
+      dockerfile: Dockerfile
+    env_file:
+      - ./env/redis.env
+    command: ["python", "main.py"]
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./worker:/usr/src/app
+
+
+volumes:
+  data-volume:
